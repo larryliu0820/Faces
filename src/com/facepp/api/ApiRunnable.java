@@ -2,14 +2,14 @@ package com.facepp.api;
 
 import org.json.JSONObject;
 
-import android.app.Activity;
 import android.content.Context;
-import android.widget.ImageView;
-import android.widget.TextView;
+import android.os.Handler;
 
 import com.facepp.http.HttpRequests;
 
-public class Api {
+public class ApiRunnable {
+	protected Handler handler;
+	
     protected HttpRequests httpRequests;
 	
     protected Context context;
@@ -22,32 +22,46 @@ public class Api {
     public static final int NETWORK_ERR = 1;
     public static final int INPUT_ERR = 2;
     
+    public static final String FACE_ID = "FACE_ID";
+    
+    public ApiRunnable(Handler h) {
+    	setHandler(h);
+    }
+    
 	public HttpRequests getHttpRequests() {
 		return httpRequests;
 	}
-	public Api setHttpRequests(HttpRequests httpRequests) {
+	public ApiRunnable setHttpRequests(HttpRequests httpRequests) {
 		this.httpRequests = httpRequests;
 		return this;
 	}
 	public Context getContext() {
 		return context;
 	}
-	public Api setContext(Context context) {
+	public ApiRunnable setContext(Context context) {
 		this.context = context;
 		return this;
 	}
 	public String getFaceId() {
 		return faceId;
 	}
-	public Api setFaceId(String faceId) {
+	public ApiRunnable setFaceId(String faceId) {
 		this.faceId = faceId;
 		return this;
 	}
 	public JSONObject getResult() {
 		return result;
 	}
-	public Api setResult(JSONObject result) {
+	public ApiRunnable setResult(JSONObject result) {
 		this.result = result;
 		return this;
+	}
+
+	public Handler getHandler() {
+		return handler;
+	}
+
+	public void setHandler(Handler handler) {
+		this.handler = handler;
 	}
 }

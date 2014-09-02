@@ -3,11 +3,16 @@ package com.facepp.api;
 import org.json.JSONException;
 
 import android.graphics.drawable.Drawable;
+import android.os.Handler;
 
 import com.facepp.error.FaceppParseException;
 import com.facepp.http.PostParameters;
 
-public class RecognitionSearchRunnable extends Api implements Runnable{
+public class RecognitionSearchRunnable extends ApiRunnable implements Runnable{
+
+	public RecognitionSearchRunnable(Handler h) {
+		super(h);
+	}
 
 	private static final String[] facesets = {"FamousInHistory","StoryStone"};
 	

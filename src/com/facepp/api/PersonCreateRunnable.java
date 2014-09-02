@@ -2,19 +2,23 @@ package com.facepp.api;
 
 import org.json.JSONException;
 
+import android.os.Handler;
+
 import com.facepp.error.FaceppParseException;
 import com.facepp.http.PostParameters;
 
-public class PersonCreateRunnable extends Api implements Runnable{
+public class PersonCreateRunnable extends ApiRunnable implements Runnable{
+
+	public PersonCreateRunnable(Handler h) {
+		super(h);
+	}
 
 	public void run() {
-		// TODO Auto-generated method stub
 		try {
 			int numOfFaces = result.getJSONArray("face").length();
 			if(numOfFaces>1){
 
 			}
-			//create a person
 			
 			String personName = "person_1";
 			PostParameters params = new PostParameters().setPersonName(personName).setFaceId(faceId);

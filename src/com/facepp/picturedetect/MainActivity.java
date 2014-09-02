@@ -32,12 +32,14 @@ import com.facpp.picturedetect.R;
  */
 public class MainActivity extends Activity {
 
-	final private static String TAG = "MainActivity";
-	final private int TAKE_PICTURE = 2;
-	final private int PICTURE_CHOOSE = 1;
+	private static final String TAG = "MainActivity";
+	public static final int TAKE_PICTURE = 2;
+	public static final int PICTURE_CHOOSE = 1;
+	
+	public static final String KEY_IMAGE="image";
+	public static final String REQUEST_CODE="request_code";
 	
 	private State currentState = State.RUN;
-	private Bitmap tempImg;
 	private Button buttonGetImage;
 	private Button buttonPhoto;
 		
@@ -70,13 +72,13 @@ public class MainActivity extends Activity {
         	public void onClick(View arg0){
         		if(currentState.compareTo(State.RUN) != 0)
 					return;
-        		Intent intent = new Intent("android.media.action.IMAGE_CAPTURE");
+        		Intent imageCaptureIntent = new Intent("android.media.action.IMAGE_CAPTURE");
         		File photo = new File(Environment.getExternalStorageDirectory(),  "Pic.jpg");
-        	    intent.putExtra(MediaStore.EXTRA_OUTPUT,
+        		imageCaptureIntent.putExtra(MediaStore.EXTRA_OUTPUT,
         	            Uri.fromFile(photo));
         	    imageUri = Uri.fromFile(photo);
 				
-				startActivityForResult(intent,TAKE_PICTURE);
+				startActivityForResult(imageCaptureIntent,TAKE_PICTURE);
         	}
         });
         
@@ -93,60 +95,22 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
     	super.onActivityResult(requestCode, resultCode, intent);
-    	
-    	//the image picker callback
-    	switch(requestCode){
-    	case PICTURE_CHOOSE:
-    	{
-    		if (intent != null) {
-    
-    			Cursor cursor = getContentResolver().query(intent.getData(), null, null, null, null);
-    			cursor.moveToFirst();
-    			int idx = cursor.getColumnIndex(ImageColumns.DATA);
-    			String fileSrc = cursor.getString(idx); 
-    
-    			Options options = new Options();
-    			options.inJustDecodeBounds = true;
-    			tempImg = BitmapFactory.decodeFile(fileSrc, options);
-
-    			options.inSampleSize = Math.max(1, (int)Math.ceil(Math.max((double)options.outWidth / 1024f, (double)options.outHeight / 1024f)));
-    			options.inJustDecodeBounds = false;
-    			tempImg = BitmapFactory.decodeFile(fileSrc, options);
-    			
-    			buttonGetImage.setVisibility(View.INVISIBLE);
-    	    	buttonPhoto.setVisibility(View.INVISIBLE);
-    			
-    		}
-    		else {
-    			Log.d(TAG, "idButSelPic Photopicker canceled");
-    		}
-    		break;
-    	}
-    	case TAKE_PICTURE:
-    	{
-    		if (resultCode == Activity.RESULT_OK) {
-                Uri selectedImage = imageUri;
-                getContentResolver().notifyChange(selectedImage, null);
-                ContentResolver cr = getContentResolver();
-                try {
-                	tempImg = android.provider.MediaStore.Images.Media
-                     .getBitmap(cr, selectedImage);
-
-                    Toast.makeText(this, selectedImage.toString(),
-                            Toast.LENGTH_LONG).show();
-                } catch (Exception e) {
-                    Toast.makeText(this, "Failed to load", Toast.LENGTH_SHORT)
-                            .show();
-                    Log.e("Camera", e.toString());
-                }
-                buttonGetImage.setVisibility(View.INVISIBLE);
-            	buttonPhoto.setVisibility(View.INVISIBLE);
-            }			
-    		break;
-    	}
-    	}
+    	    	
     	Intent imageDisplayIntent = new Intent(this, ImageDisplayActivity.class);
-    	startActivity(imageDisplayIntent);
+    	imageDisplayIntent.putExtra(REQUEST_CODE, requestCode);
+		
+    	//the image picker callback
+		if (resultCode == Activity.RESULT_OK) {
+			switch(requestCode) {
+			case PICTURE_CHOOSE:
+				imageDisplayIntent.setData(intent.getData());
+				break;
+			case TAKE_PICTURE:
+				imageDisplayIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+				break;
+			}
+	    	startActivity(imageDisplayIntent);
+		}
     }
     
 }
