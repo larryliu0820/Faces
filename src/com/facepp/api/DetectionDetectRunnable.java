@@ -26,6 +26,8 @@ public class DetectionDetectRunnable extends ApiRunnable implements Runnable{
 	
 	private Bitmap bitmap;
 	private final static String TAG = "DetectionDetectRunnable";
+
+	
 	
 	public void run() {
 		
@@ -35,29 +37,34 @@ public class DetectionDetectRunnable extends ApiRunnable implements Runnable{
 		matrix.postScale(scale, scale);
 
 		Bitmap imgSmall = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, false);
-		Log.v(TAG, "imgSmall size : " + imgSmall.getWidth() + " " + imgSmall.getHeight());
+		
 		
 		imgSmall.compress(Bitmap.CompressFormat.JPEG, 100, stream);
 		byte[] array = stream.toByteArray();
+		//Log.v(TAG, "imgSmall size : " + imgSmall.getWidth() + " " + imgSmall.getHeight());
+		Message message = handler.obtainMessage();
+		Bundle bundle = message.getData();
 		try {
 			//detect
 			result = httpRequests.detectionDetect(new PostParameters().setImg(array));
-			//finished , then call the callback function
 			
-			faceId = result.getJSONArray("face").getJSONObject(0).getString("face_id");
-			System.out.println("faceId = "+faceId);
+			faceId = result.getJSONArray("face").getJSONObject(0).getString("face_id");			
 			
-			Message message = handler.obtainMessage();
 			message.what = MSG_DETECT_SUCCESS;
-			Bundle bundle = message.getData();
+			
 			bundle.putString(FACE_ID, faceId);
+			bundle.putString(JSON, result.toString());
 			
 			handler.sendMessage(message);
 			
 		} catch (FaceppParseException e) {
-			
+			message.what = MSG_DETECT_FAILURE;
+			bundle.putString(FAILURE_REASON, e.getMessage());
+			handler.sendMessage(message);
 		} catch (JSONException e) {
-			
+			message.what = MSG_DETECT_FAILURE;
+			bundle.putString(FAILURE_REASON, e.getMessage());
+			handler.sendMessage(message);
 		}
 		
 	}

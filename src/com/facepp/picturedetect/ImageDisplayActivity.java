@@ -23,6 +23,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.BitmapFactory.Options;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -58,12 +59,21 @@ public class ImageDisplayActivity extends Activity {
 	private String tempId = null;
 	
 	private Handler mHandler;
-		
+			
 	private final HttpRequests httpRequests = new HttpRequests(
 			"7ce635b3cc93ae431de9c82174082905", 
 			"n4-z3AY6ZbVbGoEFZverm00nVgI5I_Wt", false, false);
 
 	public static final int MSG_DETECT_SUCCESS = 100;
+	public static final int MSG_DETECT_FAILURE = 101;
+	public static final int MSG_CREATE_SUCCESS = 200;
+	public static final int MSG_CREATE_FAILURE = 201;
+	public static final int MSG_SEARCH_SUCCESS = 300;
+	public static final int MSG_SEARCH_FAILURE = 301;
+	public static final String FAILURE_REASON = "failure_reason";
+	public static final String PERSON_NAME = "person_name";
+	public static final String FILE_NAME = "person_face";
+	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
@@ -140,7 +150,7 @@ public class ImageDisplayActivity extends Activity {
         
         attacher = new PhotoViewAttacher(imageView);
         
-        buttonVerify =(Button)this.findViewById(R.id.button5);
+        buttonVerify = (Button)this.findViewById(R.id.button5);
         buttonRerun = (Button)this.findViewById(R.id.button2);
         
         buttonVerify.setVisibility(View.VISIBLE);
@@ -165,20 +175,33 @@ public class ImageDisplayActivity extends Activity {
 						if(inputMessage.what == MSG_DETECT_SUCCESS) {
 							Bundle bundle = inputMessage.getData();
 							tempId = bundle.getString(ApiRunnable.FACE_ID);
-							Log.d(TAG,"Face id = "+tempId);
-							textView.setText(tempId);
+							try {
+								jsonResponse = new JSONObject(bundle.getString(ApiRunnable.JSON));
+								findFaces(jsonResponse, tempImg);
+							} catch (JSONException e) {
+								textView.setText("Network error.");
+								e.printStackTrace();
+							}
+							
 						}
+						else
+							textView.setText("Detect failed."+inputMessage.getData().getString("failure_reason"));
 					}
 				};
 				
-				DetectionDetectRunnable detectionDetect = new DetectionDetectRunnable(mHandler);
+				final DetectionDetectRunnable detectionDetect = new DetectionDetectRunnable(mHandler);
 				detectionDetect.
 					setBitmap(tempImg).
 					setContext(getApplicationContext()).
 					setFaceId(tempId).
 					setHttpRequests(httpRequests);
-				detectionDetect.run();
-				
+				Thread detectThread = new Thread() {
+					@Override
+					public void run() {
+						detectionDetect.run();
+					}
+				};
+				detectThread.start();
           	}
         });
       
@@ -194,79 +217,75 @@ public class ImageDisplayActivity extends Activity {
     }
 
 
-    public class Callback {
-    	public void getResult(JSONObject rst, Bitmap image) {
-			//Log.i(TAG, rst.toString());
-			
-			//use the red paint
-			Paint paint = new Paint();
-			paint.setColor(Color.RED);
-			paint.setStrokeWidth(Math.max(image.getWidth(), image.getHeight()) / 100f);
+	public void findFaces(final JSONObject rst, final Bitmap image) {
+		//Log.i(TAG, rst.toString());
+		Thread thread = new Thread() {
+			@Override
+			public void run() {
+				//use the red paint
+				Paint paint = new Paint();
+				paint.setColor(Color.RED);
+				paint.setStrokeWidth(Math.max(image.getWidth(), image.getHeight()) / 100f);
 
-			//create a new canvas
-			Bitmap bitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), image.getConfig());
-			Canvas canvas = new Canvas(bitmap);
-			canvas.drawBitmap(image, new Matrix(), null);
-			
-			
-			try {
-				//find out all faces
-				final int count = rst.getJSONArray("face").length();
-				for (int i = 0; i < count; ++i) {
-					float x, y, w, h;
-					//get the center point
-					x = (float)rst.getJSONArray("face").getJSONObject(i)
-							.getJSONObject("position").getJSONObject("center").getDouble("x");
-					y = (float)rst.getJSONArray("face").getJSONObject(i)
-							.getJSONObject("position").getJSONObject("center").getDouble("y");
+				//create a new canvas
+				Bitmap bitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), image.getConfig());
+				Canvas canvas = new Canvas(bitmap);
+				canvas.drawBitmap(image, new Matrix(), null);
+				
+				
+				try {
+					//find out all faces
+					final int count = rst.getJSONArray("face").length();
+					for (int i = 0; i < count; ++i) {
+						float x, y, w, h;
+						//get the center point
+						x = (float)rst.getJSONArray("face").getJSONObject(i)
+								.getJSONObject("position").getJSONObject("center").getDouble("x");
+						y = (float)rst.getJSONArray("face").getJSONObject(i)
+								.getJSONObject("position").getJSONObject("center").getDouble("y");
 
-					//get face size
-					w = (float)rst.getJSONArray("face").getJSONObject(i)
-							.getJSONObject("position").getDouble("width");
-					h = (float)rst.getJSONArray("face").getJSONObject(i)
-							.getJSONObject("position").getDouble("height");
+						//get face size
+						w = (float)rst.getJSONArray("face").getJSONObject(i)
+								.getJSONObject("position").getDouble("width");
+						h = (float)rst.getJSONArray("face").getJSONObject(i)
+								.getJSONObject("position").getDouble("height");
+						
+						//change percent value to the real size
+						x = x / 100 * image.getWidth();
+						w = w / 100 * image.getWidth() * 0.7f;
+						y = y / 100 * image.getHeight();
+						h = h / 100 * image.getHeight() * 0.7f;
+
+						//draw the box to mark it out
+						canvas.drawLine(x - w, y - h, x - w, y + h, paint);
+						canvas.drawLine(x - w, y - h, x + w, y - h, paint);
+						canvas.drawLine(x + w, y + h, x - w, y + h, paint);
+						canvas.drawLine(x + w, y + h, x + w, y - h, paint);
+					}
 					
-					//change percent value to the real size
-					x = x / 100 * image.getWidth();
-					w = w / 100 * image.getWidth() * 0.7f;
-					y = y / 100 * image.getHeight();
-					h = h / 100 * image.getHeight() * 0.7f;
-
-					//draw the box to mark it out
-					canvas.drawLine(x - w, y - h, x - w, y + h, paint);
-					canvas.drawLine(x - w, y - h, x + w, y - h, paint);
-					canvas.drawLine(x + w, y + h, x - w, y + h, paint);
-					canvas.drawLine(x + w, y + h, x + w, y - h, paint);
+					//save new image
+					tempImg = bitmap;
+					
+					
+					
+					ImageDisplayActivity.this.runOnUiThread(new Runnable() {
+						
+						public void run() {
+							//show the image
+							imageView.setImageBitmap(tempImg);
+							attacher.update();
+						}
+					});
+					
+				} catch (JSONException e) {
+					textView.setText("Error.");
 				}
-				
-				//save new image
-				tempImg = bitmap;
-				
-				
-				
-				ImageDisplayActivity.this.runOnUiThread(new Runnable() {
-					
-					public void run() {
-						//show the image
-						imageView.setImageBitmap(tempImg);
-						attacher.update();
-						textView.setText("Finished, "+ count + " faces.");
-					}
-				});
-				
-			} catch (JSONException e) {
-				e.printStackTrace();
-				ImageDisplayActivity.this.runOnUiThread(new Runnable() {
-					public void run() {
-						textView.setText("Error.");
-					}
-				});
 			}
-			
-			
-		}
+		};
+		thread.start();
+		create();
 	}
-
+    	
     public void create() {
     	ImageDisplayActivity.this.runOnUiThread(new Runnable() {
 			
@@ -276,12 +295,29 @@ public class ImageDisplayActivity extends Activity {
 			}
 		});
 		
-		PersonCreateRunnable personCreate = new PersonCreateRunnable(mHandler);
+    	mHandler = new Handler(Looper.getMainLooper()) {
+			@Override
+			public void handleMessage(Message inputMessage) {
+				if(inputMessage.what == MSG_CREATE_SUCCESS) {
+					search();
+				}else
+					textView.setText("Detect failed."+inputMessage.getData().getString("failure_reason"));
+			}
+		};
+		
+		final PersonCreateRunnable personCreate = new PersonCreateRunnable(mHandler);
 		personCreate.setContext(getApplicationContext()).
 			setResult(jsonResponse).
 			setFaceId(tempId).
 			setHttpRequests(httpRequests);
-		personCreate.run();
+		Thread thread = new Thread() {
+			@Override
+			public void run() {
+				personCreate.run();
+			}
+		};
+		thread.start();
+		
     }
     
     public void search() {
@@ -294,20 +330,48 @@ public class ImageDisplayActivity extends Activity {
 			}
 		});
 		
-		RecognitionSearchRunnable recognitionSearch = new RecognitionSearchRunnable(mHandler);
+    	mHandler = new Handler(Looper.getMainLooper()) {
+			@Override
+			public void handleMessage(Message inputMessage) {
+				if(inputMessage.what == MSG_SEARCH_SUCCESS) {
+					Bundle bundle = inputMessage.getData();
+					String personName = bundle.getString(PERSON_NAME);
+					String fileName = bundle.getString(FILE_NAME);
+					textView.setText("你的前世是：" + personName + "，好犀利！");
+					Drawable famousFace = getResources().getDrawable(getResources()
+			                  .getIdentifier(fileName, "drawable", getPackageName()));
+					imageView.setImageDrawable(famousFace);
+					attacher.update();
+					
+					buttonVerify.setVisibility(View.INVISIBLE);
+					buttonRerun.setVisibility(View.VISIBLE);
+					
+					currentState = State.RERUN;
+				}else
+					textView.setText("Detect failed."+inputMessage.getData().getString("failure_reason"));
+			}
+		};
+		
+		final RecognitionSearchRunnable recognitionSearch = new RecognitionSearchRunnable(mHandler);
 		recognitionSearch.
 			setContext(getApplicationContext()).
 			setFaceId(tempId).
 			setHttpRequests(httpRequests);
-		recognitionSearch.run();
+		Thread thread = new Thread() {
+			@Override
+			public void run() {
+				recognitionSearch.run();
+			}
+		};
+		thread.start();
 		
     }
     
     public void clear() {
-    	currentState = State.RUN;
-		buttonVerify.setVisibility(View.INVISIBLE);
+		buttonVerify.setVisibility(View.VISIBLE);
 		buttonRerun.setVisibility(View.INVISIBLE);
 		imageView.setImageDrawable(null);
+		textView.setText("Click verify -->");
     }
 	public JSONObject getJsonResponse() {
 		return jsonResponse;

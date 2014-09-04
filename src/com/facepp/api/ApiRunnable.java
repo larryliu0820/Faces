@@ -23,6 +23,7 @@ public class ApiRunnable {
     public static final int INPUT_ERR = 2;
     
     public static final String FACE_ID = "FACE_ID";
+    public static final String JSON = "JSON";
     
     public ApiRunnable(Handler h) {
     	setHandler(h);
